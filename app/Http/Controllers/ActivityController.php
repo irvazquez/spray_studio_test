@@ -3,33 +3,36 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use Illuminate\Support\Collection;
 use App\Models\Activity;
 
 class ActivityController extends Controller
 {
-    public function findAll(): View
+    public function findAll()
     {
         $activities = Activity::with('packages')->get();
-        $packages = new Collection();   
-        foreach ($activities as $activity) {
-            foreach ($activity->packages as $package) {
-                if (!$packages->contains($package->no_classes))
-                {
-                    $packages->push($package->no_classes);
-                }
-            }
-        }
-        $noClasses = $packages->sort();
-        return view('activities.index', compact('activities', 'noClasses'));
+        return $activities;
     }
 
     public function create(Request $request)
     {
-        $activity = new Activity(['name' => $request['name']]);
-        $activity->save();
-        $activity->packages()->create(['no_classes' => $request['no_classes'], 'price' => $request['price'], 'activity_id' => $activity->id]);
-        return redirect()->route('activities.all');
+        try {
+            $validated = $request->validate([
+                'name' => 'string|required|min:2',
+                'no_classes' => 'integer|min:1|required',
+                'price' => 'number|min:0|required'
+            ]);
+            $activity = new Activity(['name' => $validated['name']]);
+            $activity->save();
+            $activity
+                ->packages()
+                ->create([
+                    'no_classes' => $validated['no_classes'],
+                    'price' => $validated['price'],
+                    'activity_id' => $activity->id
+                ]);
+            return $activity;
+        } catch (\Exception $e) {
+            return response($e->getMessage(), 400);
+        }
     }
 }

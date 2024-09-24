@@ -3,27 +3,45 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use App\Models\Activity;
-use App\Models\Package;
 
 class OrderController extends Controller
 {
     public function create(Request $request)
     {
-        $items = collect($request->items);
-        $price = $items->reduce(function ($acc = 0, $item) {
-            $activity = Activity::find($item['id'])->with('packages');
-            $cost = totalPriceActivity($item);
-            return $acc + $cost;
-        });
-
-        return $price;
+        try {
+            $validated = $request->validate([
+                'items.*.id' => 'uuid|required',
+                'items.*.noClasses' => 'integer|min:1|required'
+            ], [
+                'id' => [
+                    'uuid' => 'Uno o más Ids ingresados no son válidos',
+                    'requried' => 'Se requiere que todos los articulos cuenten con un Id válido'
+                ],
+                [
+                    'noClasses' => [
+                        'integer' => 'El número de clases debe de ser un número entero positivo',
+                        'required' => 'Se necesita ingresar un numero de clases por cada actividad'
+                    ]
+                ]
+            ]);
+    
+            $items = collect($validated['items']);
+            $price = $items->reduce(function ($acc = 0, $item) {
+                Activity::find($item['id'])->with('packages');
+                $cost = totalPriceActivity($item);
+                return $acc + $cost;
+            });
+    
+            return $price;
+        } catch (\Exception $e) {
+            return response($e->getMessage(), 400);
+        }
     }
 
 }
 
-function totalPriceActivity($item): int
+function totalPriceActivity($item): float
 {
     $totalPrice = 0;
     $requiredClasses = $item['noClasses'];

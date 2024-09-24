@@ -16,8 +16,24 @@ class PackageController extends Controller
 
     public function create(Request $request, string $activity_id)
     {
-        $package = new Package(['no_classes' => $request['no_classes'], 'price' => $request['price'], 'activity_id' => $activity_id]);
-        $package->save();
-        return redirect()->route('packages.activity', $activity_id);
+        try {
+            $validated = $request->validate([
+                'no_classes' => 'integer|min:1|required',
+                'price' => 'numeric|min:0|required',
+                'activity_id' => 'uuid|required'
+            ]);
+            $packageExist = Package::where([
+                ['activity_id', '=', $validated['activity_id']],
+                ['no_classes', '=', $validated['no_classes']]
+            ])->first();
+            if ($packageExist) {
+                return response('El paquete ya existe.', 409);
+            }
+            $package = new Package(['no_classes' => $request['no_classes'], 'price' => $request['price'], 'activity_id' => $activity_id]);
+            $package->save();
+            return $package;
+        } catch (\Exception $e) {
+            return response($e->getMessage(), 400);
+        }
     }
 }
